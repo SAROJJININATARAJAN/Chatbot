@@ -1,0 +1,62 @@
+import streamlit as st
+import httpx
+from langchain_openai import ChatOpenAI
+
+# 🔑 OpenAI API key and endpoint
+API_KEY = "sk-JmVEeaH6p90azCuJwyliJQ"
+BASE_URL = "https://genailab.tcs.in/"
+MODEL_NAME = "azure/genailab-maas-gpt-4o"
+
+# 🧠 Custom HTTP client
+client = httpx.Client(verify=False)
+
+# 🧠 Initialize LangChain ChatOpenAI client
+llm = ChatOpenAI(
+    api_key=API_KEY,
+    base_url=BASE_URL,
+    model=MODEL_NAME,
+    http_client=client,
+    temperature=0.7
+)
+
+# Streamlit app setup
+st.set_page_config(page_title="OpenAI Chatbot", page_icon="🤖")
+st.title("🤖 Chat with OpenAI")
+
+# Chat history stored in session
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Show previous messages
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# User input
+if prompt := st.chat_input("Type your message..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    try:
+        # LangChain expects messages as list of HumanMessage / AIMessage
+        from langchain.schema import HumanMessage, AIMessage
+
+        # Convert session messages to LangChain format
+        chat_history = []
+        for m in st.session_state.messages:
+            if m["role"] == "user":
+                chat_history.append(HumanMessage(content=m["content"]))
+            elif m["role"] == "assistant":
+                chat_history.append(AIMessage(content=m["content"]))
+
+        # Get response
+        response = llm.invoke(chat_history)
+        reply = response.content
+
+    except Exception as e:
+        reply = f"⚠️ API call failed: {e}"
+
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+    with st.chat_message("assistant"):
+        st.markdown(reply)
